@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Properties</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        font-size: large;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        /* height: 100vh; */
+        background: linear-gradient(to right, white, white);
+      }
+      .property-card {
+        background: #e9ecef;
+        margin-bottom: 1em;
+        padding: 1em;
+        border-radius: 6px;
+        width: 450px;
+      }
+      .property-card img {
+        display: block;
+        margin-top: 1em;
+        border-radius: 4px;
+      }
+      /* Responsive Navbar Styles */
+      .navbar {
+        display: flex;
+        align-items: center;
+        background: #62610e;
+        padding: 0 1em;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+      }
+      .navbar-brand {
+        color: #fff;
+        font-weight: bold;
+        font-size: 1.2em;
+        margin-right: auto;
+        padding: 0.7em 0;
+      }
+      .navbar-links {
+        list-style: none;
+        display: flex;
+        margin: 0;
+        padding: 0;
+      }
+      .navbar-links li {
+        margin-left: 1em;
+      }
+      .navbar-links a {
+        color: #fff;
+        text-decoration: none;
+        padding: 0.7em 1em;
+        display: block;
+        border-radius: 4px;
+      }
+      .navbar-links a:hover {
+        background: #4caf50;
+      }
+      .navbar-toggle {
+        display: none;
+        background: none;
+        border: none;
+        color: #fff;
+        font-size: 2em;
+        cursor: pointer;
+        margin-left: 1em;
+      }
+
+      /* Responsive for mobile */
+      @media (max-width: 700px) {
+        .navbar-links {
+          display: none;
+          flex-direction: column;
+          width: 100%;
+          background: #62610e;
+          position: absolute;
+          top: 100%;
+          left: 0;
+        }
+        .navbar-links.show {
+          display: flex;
+        }
+        .navbar-toggle {
+          display: block;
+        }
+        .navbar {
+          flex-wrap: wrap;
+        }
+      }
+      /* Center the form on desktop */
+      .form-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        min-height: 80vh;
+      }
+
+      /* On mobile, remove extra centering for better fit */
+      @media (max-width: 700px) {
+        .form-wrapper {
+          align-items: stretch;
+          min-height: unset;
+          padding: 0 2vw;
+        }
+        form {
+          margin-left: 0;
+          width: 200vw;
+          max-width: 98vw;
+          box-sizing: border-box;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <!-- Responsive Navbar -->
+      <nav class="navbar">
+        <div class="navbar-brand">Dream Properties</div>
+        <button class="navbar-toggle" id="navbar-toggle">&#9776;</button>
+        <ul class="navbar-links" id="navbar-links">
+          <li><a href="index.html">Home</a></li>
+          <li><a href="properties.html?type=rent">Rent</a></li>
+          <li><a href="properties.html?type=sell">Buy</a></li>
+          <li><a href="add-property.html">Add Property</a></li>
+          <li id="profile-nav"><a href="login.html">Login</a></li>
+        </ul>
+      </nav>
+      <h1 style="text-align: center">Available Properties</h1>
+
+      <form id="search-form" style="margin-bottom: 20px; text-align: center">
+        <input
+          type="text"
+          id="search-location"
+          placeholder="Enter location..."
+        />
+        <button type="submit">Search</button>
+      </form>
+      <div class="form-wrapper">
+        <div id="property-list"></div>
+      </div>
+    </main>
+    <script>
+      // Fetch current user to display owner information
+      let currentUser = null;
+      fetch("/api/me")
+        .then((res) => res.json())
+        .then((user) => {
+          setProfileNav(user);
+          currentUser = user;
+          loadProperties();
+        });
+
+      function loadProperties(location = "") {
+        const params = new URLSearchParams(window.location.search);
+        const type = params.get("type");
+        let url = "/api/properties";
+        let query = [];
+        if (type) query.push(`type=${type}`);
+        if (location) query.push(`location=${encodeURIComponent(location)}`);
+        if (query.length) url += "?" + query.join("&");
+        fetch(url)
+          .then((res) => res.json())
+          .then((properties) => {
+            const container = document.getElementById("property-list");
+            if (properties.length === 0) {
+              container.innerHTML = "<p>No properties found.</p>";
+            } else {
+              container.innerHTML = properties
+                .map(
+                  (p) => `
+          
+          <div class="property-card">
+  <h2>${p.title}</h2>
+  <p>${p.description}</p>
+  <p><strong>Price:</strong> ₹${p.price}${
+                    p.type === "rent" ? " /month" : ""
+                  }</p>
+  <p><strong>Location:</strong> ${p.location}</p>
+  <p><strong>Owner:</strong> ${
+    currentUser && currentUser.phoneno === p.owner_phoneno
+      ? `${currentUser.name.split(" ")[0]} (${currentUser.phoneno})`
+      : `${p.owner_name} (${p.owner_phoneno})` ||
+        (currentUser && currentUser.email === p.owner_email)
+      ? `${currentUser.name.split(" ")[0]} (${currentUser.email})`
+      : `${p.owner_name} (${p.owner_email})`
+  }</p>
+  ${
+    p.image
+      ? `<img src="uploads/${p.image}" alt="Property Image" width="200"/>`
+      : ""
+  }
+  <br>
+
+  <button class="fav-btn" data-id="${p.id}">❤️Add to Favorites</button>
+  
+</div>
+        `
+                )
+                .join("");
+            }
+          });
+      }
+      // Handle favorite button click
+      document.addEventListener("click", function (e) {
+        if (e.target.classList.contains("fav-btn")) {
+          const propertyId = e.target.getAttribute("data-id");
+          fetch("/api/favorites", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ property_id: propertyId }),
+          })
+            .then((res) => res.text())
+            .then((msg) => alert(msg));
+        }
+      });
+      function setProfileNav(user) {
+        const nav = document.getElementById("profile-nav");
+        if (user && user.email) {
+          const firstLetter = user.email.charAt(0).toUpperCase();
+          nav.innerHTML = `
+       <a href="profile.html" id="profile-icon" style="
+        background: #4caf50;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: white;
+        margin-right: 8px;
+        cursor: pointer;
+        " title="${user.email}">${firstLetter}</a>
+      <button id="logout-btn" style="
+        background: #7d3037;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 6px 12px;
+        cursor: pointer;
+        font-size: 1em;
+      ">Logout</button>
+    `;
+          document.getElementById("logout-btn").onclick = function () {
+            fetch("/logout").then(() => {
+              // Reset to login button
+              nav.innerHTML = `<a href="login.html">Login</a>`;
+              location.reload();
+            });
+          };
+        } else {
+          nav.innerHTML = `<a href="login.html">Login</a>`;
+        }
+      }
+      // Handle search form submit
+      document
+        .getElementById("search-form")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+          const location = document
+            .getElementById("search-location")
+            .value.trim();
+          loadProperties(location);
+        });
+      // Initial fetch to set nav
+      fetch("/api/me")
+        .then((res) => res.json())
+        .then((user) => {
+          setProfileNav(user);
+          currentUser = user;
+          loadProperties();
+        });
+      document.getElementById("navbar-toggle").onclick = function () {
+        document.getElementById("navbar-links").classList.toggle("show");
+      };
+    </script>
+  </body>
+</html>

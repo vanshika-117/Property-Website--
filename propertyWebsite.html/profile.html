@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>My Profile</title>
+    <link rel="stylesheet" href="profile.css" />
+  </head>
+  <body>
+    <main>
+      <nav class="navbar">
+        <div class="navbar-brand">Dream Properties</div>
+        <button class="navbar-toggle" id="navbar-toggle">&#9776;</button>
+        <ul class="navbar-links" id="navbar-links">
+          <li><a href="index.html">Home</a></li>
+          <li><a href="properties.html?type=rent">Rent</a></li>
+          <li><a href="properties.html?type=sell">Buy</a></li>
+          <li><a href="add-property.html">Add Property</a></li>
+          <li id="profile-nav"><a href="login.html">Login</a></li>
+        </ul>
+      </nav>
+      <h1>My Profile</h1>
+      <div class="profile-card" id="user-info"></div>
+      <h2>My Favorite Properties</h2>
+      <div id="favorites-list" class="favorites-grid"></div>
+    </main>
+    <script>
+      // Show user info in a card
+      fetch("/api/me")
+        .then((res) => res.json())
+        .then((user) => {
+          document.getElementById("user-info").innerHTML = `
+      <h3>${user.name}</h3>
+      <p><strong>Email:</strong> ${user.email}</p>
+      <p><strong>Phone:</strong> ${user.phoneno}</p>
+    `;
+        });
+
+      // Show favorites as cards with remove button
+      function loadFavorites() {
+        fetch("/api/favorites")
+          .then((res) => res.json())
+          .then((properties) => {
+            const container = document.getElementById("favorites-list");
+            if (properties.length === 0) {
+              container.innerHTML = "<p>No favorites yet.</p>";
+            } else {
+              container.innerHTML = properties
+                .map(
+                  (p) => `
+          <div class="property-card" data-id="${p.id}">
+            ${
+              p.image
+                ? `<img src="uploads/${p.image}" alt="Property Image" />`
+                : ""
+            }
+            <h2>${p.title}</h2>
+            <p>${p.description}</p>
+            <p><strong>Price:</strong> ₹${p.price}${
+                    p.type === "rent" ? " /month" : ""
+                  }</p>
+            <p><strong>Location:</strong> ${p.location}</p>
+            <p><strong>Owner:</strong> ${p.owner_name} (${p.owner_email})</p>
+            <button class="remove-fav-btn" data-id="${
+              p.id
+            }">Remove from Favorites</button>
+          </div>
+        `
+                )
+                .join("");
+            }
+          });
+      }
+      loadFavorites();
+
+      // Remove from favorites handler
+      document.addEventListener("click", function (e) {
+        if (e.target.classList.contains("remove-fav-btn")) {
+          const propertyId = e.target.getAttribute("data-id");
+          fetch("/api/favorites", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ property_id: propertyId }),
+          })
+            .then((res) => res.text())
+            .then((msg) => {
+              alert(msg);
+              loadFavorites();
+            });
+        }
+      });
+      function setProfileNav(user) {
+        const nav = document.getElementById("profile-nav");
+        if (user && user.email) {
+          const firstLetter = user.email.charAt(0).toUpperCase();
+          nav.innerHTML = `
+       <a href="profile.html" id="profile-icon" style="
+        background: #4caf50;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: white;
+        margin-right: 8px;
+        cursor: pointer;
+        " title="${user.email}">${firstLetter}</a>
+      <button id="logout-btn" style="
+        background: #7d3037;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 6px 12px;
+        cursor: pointer;
+        font-size: 1em;
+      ">Logout</button>
+    `;
+
+          document.getElementById("logout-btn").onclick = function () {
+            fetch("/logout").then(() => {
+              // Reset to login button
+              nav.innerHTML = `<a href="login.html">Login</a>`;
+              location.reload();
+            });
+          };
+        } else {
+          nav.innerHTML = `<a href="login.html">Login</a>`;
+        }
+      }
+      // Initial fetch to set nav
+      fetch("/api/me")
+        .then((res) => res.json())
+        .then((user) => {
+          setProfileNav(user);
+          currentUser = user;
+          loadProperties();
+        });
+      document.getElementById("navbar-toggle").onclick = function () {
+        document.getElementById("navbar-links").classList.toggle("show");
+      };
+    </script>
+  </body>
+</html>
